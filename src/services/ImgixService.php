@@ -43,7 +43,7 @@ class ImgixService extends Component
     /**
      *  The Imgix API endpoint for purging images
      */
-    const PURGE_ENDPOINT = 'https://api.imgix.com/v2/image/purger';
+    const PURGE_ENDPOINT = 'https://api.imgix.com/api/v1/purge';
 
     /**
      * @var bool If purging is enabled or not
@@ -61,14 +61,14 @@ class ImgixService extends Component
         if (!isset(self::$canPurge)) {
             /** @var ConfigModel $settings */
             $config = ImagerService::getConfig();
-            
+
             // No Imgix config, no purging
             $imgixConfigArr = $config->getSetting('imgixConfig');
             if (!$imgixConfigArr || !\is_array($imgixConfigArr) || empty($imgixConfigArr)) {
                 self::$canPurge = false;
                 return false;
             }
-            
+
             // Make sure there's at least one profile that is not a web proxy and that is not excluded from purging
             $hasApiKey = !!$config->getSetting('imgixApiKey');
             $hasPurgableProfile = false;
@@ -80,10 +80,10 @@ class ImgixService extends Component
                     break;
                 }
             }
-            
+
             self::$canPurge = $hasApiKey && $hasPurgableProfile;
         }
-        
+
         return self::$canPurge;
     }
 
@@ -95,11 +95,11 @@ class ImgixService extends Component
     {
         try {
             $client = Craft::createGuzzleClient();
-            
+
             $client->post(self::PURGE_ENDPOINT, [
                 'headers' => [
-                    'Content-Type'  => 'application/json',
-                    'Authorization' => 'Basic ' . \base64_encode("{$apiKey}:")
+                    'Content-Type'  => 'application/vnd.api+json',
+                    'Authorization' => 'Bearer ' . $apiKey
                 ],
                 RequestOptions::JSON => [
                     'url' => $url
@@ -154,15 +154,15 @@ class ImgixService extends Component
             foreach ($domains as $domain) {
                 try {
                     // Build base URL for the image on Imgix
-                    $builder = new UrlBuilder([$domain], 
-                        $imgixConfig->useHttps, 
-                        null, 
-                        null, 
+                    $builder = new UrlBuilder([$domain],
+                        $imgixConfig->useHttps,
+                        null,
+                        null,
                         false);
 
                     $path = ImgixHelpers::getImgixFilePath($asset, $imgixConfig);
                     $url = $builder->createURL($path);
-                    
+
                     $this->purgeUrlFromImgix($url, $apiKey);
 
                 } catch (\Throwable $e) {
